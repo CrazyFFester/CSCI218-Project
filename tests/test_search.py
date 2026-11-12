@@ -238,9 +238,6 @@ def large_maps():
                 yield grid, start, goal
 
 
-@pytest.mark.xfail(raises=AssertionError,
-                   reason="float rounding re-opens closed nodes on long paths; "
-                          "a one-ulp margin is not enough, use `candidate < previous.g - 1e-9` in search.py")
 def test_consistent_heuristic_never_reexpands_a_cell():
     cases = [(grid, start, goal) for grid, start, goal, _ in REACHABLE] + list(large_maps())
     reexpanded = 0
