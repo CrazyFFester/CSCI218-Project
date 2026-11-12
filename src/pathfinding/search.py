@@ -170,9 +170,9 @@ def search(
 
             previous = best.get(cell)
 
-         if previous is None or candidate < previous.g - ulp(previous.g):
-             improved = _Label(cell, candidate, current)
-             best[cell] = improved
+            if previous is None or candidate < previous.g - ulp(previous.g):
+                improved = _Label(cell, candidate, current)
+                best[cell] = improved
 
                 heappush(
                     heap,
