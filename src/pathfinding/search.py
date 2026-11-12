@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from heapq import heappop, heappush
 from itertools import count
-from math import inf, isfinite
+from math import inf, isfinite, ulp
 from time import perf_counter
 from typing import Literal
 from warnings import warn
@@ -170,7 +170,7 @@ def search(
 
             previous = best.get(cell)
 
-            if previous is None or candidate < previous.g:
+            if previous is None or candidate < previous.g - ulp(previous.g):
                 improved = _Label(cell, candidate, current)
                 best[cell] = improved
 
