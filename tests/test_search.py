@@ -6,7 +6,7 @@ import pytest
 
 from oracle import distances_to, optimal_cost, path_cost, random_cases
 from pathfinding.dynamic import DynamicEnvironment
-from pathfinding.generators import maze_grid, random_grid, random_start_goal
+from pathfinding.generators import maze_grid, random_grid, random_start_goal, scatter_terrain
 from pathfinding.grid import Grid
 from pathfinding.heuristics import chebyshev, euclidean, manhattan, octile
 from pathfinding.search import astar, dijkstra, greedy_best_first
@@ -226,12 +226,27 @@ def test_same_input_gives_same_expansion_order(planner):
     assert first.path == second.path
 
 
-@pytest.mark.xfail(reason="float rounding re-opens closed nodes; fixed by `candidate < previous.g - 1e-9` in search.py")
+def large_maps():
+    """Long paths let rounding errors add up to several ulps, which small maps never show."""
+    for size in (128, 256):
+        for seed in range(6):
+            for weighted in (False, True):
+                grid = random_grid(size, size, 0.2, seed)
+                if weighted:
+                    scatter_terrain(grid, seed, 0.4)
+                start, goal = random_start_goal(grid, seed, min_distance=size // 2)
+                yield grid, start, goal
+
+
+@pytest.mark.xfail(raises=AssertionError,
+                   reason="float rounding re-opens closed nodes on long paths; "
+                          "a one-ulp margin is not enough, use `candidate < previous.g - 1e-9` in search.py")
 def test_consistent_heuristic_never_reexpands_a_cell():
+    cases = [(grid, start, goal) for grid, start, goal, _ in REACHABLE] + list(large_maps())
     reexpanded = 0
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        for grid, start, goal, _ in REACHABLE:
+        for grid, start, goal in cases:
             order = astar(grid, start, goal).visited_order
             reexpanded += len(order) - len(set(order))
     assert reexpanded == 0
