@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from heapq import heappop, heappush
 from itertools import count
-from math import inf, isfinite, ulp
+from math import inf, isfinite
 from time import perf_counter
 from typing import Literal
 from warnings import warn
@@ -22,6 +22,10 @@ from pathfinding.heuristics import (
 from pathfinding.result import Cell, SearchResult
 
 Algorithm = Literal["dijkstra", "astar", "greedy", "weighted_astar"]
+
+# Far below any real cost difference (cell costs are >= min_cost > 0),
+# far above float rounding error on 512x512 paths.
+_TIE_MARGIN = 1e-9
 
 _HEURISTICS: dict[str, Heuristic] = {
     "manhattan": manhattan,
@@ -170,7 +174,9 @@ def search(
 
             previous = best.get(cell)
 
-            if previous is None or candidate < previous.g - ulp(previous.g):
+            # Rounding on long paths can make an equal-cost route look cheaper by
+            # several ulps; treat anything closer than _TIE_MARGIN as a tie.
+            if previous is None or candidate < previous.g - _TIE_MARGIN:
                 improved = _Label(cell, candidate, current)
                 best[cell] = improved
 
