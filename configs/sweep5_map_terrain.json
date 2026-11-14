@@ -1,0 +1,25 @@
+{
+  "name": "sweep5_map_terrain",
+  "seed": 4218,
+  "pairs": 50,
+  "warmup_runs": 1,
+  "timed_runs": 5,
+  "base": {
+    "grid_size": 128,
+    "obstacle_density": 0.20,
+    "map_type": "random",
+    "connectivity": 8,
+    "terrain": "uniform",
+    "terrain_fraction": 0.30,
+    "terrain_costs": [2, 3, 4, 5],
+    "heuristic": "octile"
+  },
+  "vary": {
+    "map_type": ["random", "maze"],
+    "terrain": ["uniform", "weighted"]
+  },
+  "planners": [
+    {"name": "dijkstra", "algorithm": "dijkstra"},
+    {"name": "astar", "algorithm": "astar", "heuristic": "octile", "weight": 1.0}
+  ]
+}

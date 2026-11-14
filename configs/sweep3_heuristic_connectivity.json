@@ -1,0 +1,22 @@
+{
+  "name": "sweep3_heuristic_connectivity",
+  "seed": 2218,
+  "pairs": 50,
+  "warmup_runs": 1,
+  "timed_runs": 5,
+  "base": {
+    "grid_size": 128,
+    "obstacle_density": 0.20,
+    "map_type": "random",
+    "connectivity": 8,
+    "terrain": "uniform",
+    "heuristic": "octile"
+  },
+  "vary": {
+    "connectivity": [4, 8],
+    "heuristic": ["manhattan", "euclidean", "octile", "chebyshev"]
+  },
+  "planners": [
+    {"name": "astar", "algorithm": "astar", "weight": 1.0}
+  ]
+}
