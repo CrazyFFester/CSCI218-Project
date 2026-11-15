@@ -1,0 +1,25 @@
+{
+  "name": "sweep2_obstacle_density",
+  "seed": 1218,
+  "pairs": 50,
+  "warmup_runs": 1,
+  "timed_runs": 5,
+  "base": {
+    "grid_size": 128,
+    "obstacle_density": 0.20,
+    "map_type": "random",
+    "connectivity": 8,
+    "terrain": "uniform",
+    "heuristic": "octile",
+    "weight": 2.0
+  },
+  "vary": {
+    "obstacle_density": [0.0, 0.10, 0.20, 0.30, 0.40]
+  },
+  "planners": [
+    {"name": "dijkstra", "algorithm": "dijkstra"},
+    {"name": "astar", "algorithm": "astar", "heuristic": "octile", "weight": 1.0},
+    {"name": "greedy", "algorithm": "greedy", "heuristic": "octile"},
+    {"name": "weighted_astar_w2", "algorithm": "weighted_astar", "heuristic": "octile", "weight": 2.0}
+  ]
+}
