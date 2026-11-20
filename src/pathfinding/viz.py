@@ -1,8 +1,73 @@
 ﻿import math
 import pygame
 
+from pathfinding.dynamic import DynamicEnvironment
 from pathfinding.generators import random_grid, random_start_goal
 from pathfinding.search import search
+
+
+class MovingAgent:
+    """Walks its planned route while obstacles move; replans from its current cell when the route is blocked.
+
+    Works on its own copy of the grid, so the map being edited is never changed.
+    """
+
+    def __init__(self, grid, start, goal, algorithm, n_obstacles=12, seed=7):
+        self.grid = grid.copy()
+        self.goal = goal
+        self.algorithm = algorithm
+        self.env = DynamicEnvironment(self.grid, n_obstacles=n_obstacles, seed=seed,
+                                      mode="random", protected=[start, goal])
+        self.position = start
+        self.replans = 0
+        self.steps = 0
+        self.blocked = False
+        self.result = search(self.grid, start, goal, algorithm=algorithm)
+        self.route = list(self.result.path)
+
+    @property
+    def obstacles(self):
+        return {obstacle.pos for obstacle in self.env.obstacles}
+
+    @property
+    def arrived(self):
+        return self.position == self.goal
+
+    def tick(self):
+        """Advance one step and return what happened.
+
+        A blocked route is shown for one tick ("blocked") before the agent replans from its
+        current cell on the next tick ("replanned"), so the change is visible on screen.
+        """
+        if self.arrived:
+            return "arrived"
+
+        self.env.protected = {self.position, self.goal}
+
+        if self.blocked or not self.route:
+            self.result = search(self.grid, self.position, self.goal, algorithm=self.algorithm)
+            if not self.result.found:
+                self.route = []
+                self.blocked = True
+                self.env.step()
+                return "waiting"
+            self.blocked = False
+            self.replans += 1
+            self.route = list(self.result.path)
+            return "replanned"
+
+        self.env.step()
+        if self.env.path_blocked(self.route):
+            self.blocked = True
+            return "blocked"
+
+        if len(self.route) > 1:
+            self.route.pop(0)
+            self.position = self.route[0]
+            self.steps += 1
+        return "arrived" if self.arrived else "moved"
+
+
 def compare_algorithms(grid, start, goal):
     names = ["dijkstra", "astar", "greedy", "weighted_astar"]
 
@@ -26,27 +91,37 @@ GREEN = (40, 180, 90)
 RED = (220, 65, 65)
 BLUE = (100, 170, 240)
 YELLOW = (255, 210, 70)
+PURPLE = (150, 90, 200)
+ORANGE = (245, 140, 30)
 GRID_LINE = (180, 180, 180)
+PANEL_WIDTH = 560
+MOVE_MS = 350
+STATUS_TEXT = {
+    "moved": "moving",
+    "blocked": "path blocked!",
+    "replanned": "replanned from current cell",
+    "waiting": "no path right now, waiting",
+    "arrived": "goal reached",
+}
+
+
+def new_map(seed):
+    grid = random_grid(rows=15, cols=15, density=0.20, seed=seed, connectivity=8)
+    start, goal = random_start_goal(grid, seed=seed, min_distance=8)
+    return grid, start, goal
 
 
 def main() -> None:
     pygame.init()
 
-    grid = random_grid(
-    rows=15,
-    cols=15,
-    density=0.20,
-    seed=42,
-    connectivity=8
-)
-
-    start, goal = random_start_goal(grid, seed=42)
+    map_seed = 42
+    grid, start, goal = new_map(map_seed)
     placement_mode = None
 
     width = grid.cols * CELL_SIZE
     height = grid.rows * CELL_SIZE
 
-    screen = pygame.display.set_mode((width + 420, height + 180))
+    screen = pygame.display.set_mode((width + PANEL_WIDTH, height + 180))
     pygame.display.set_caption("Pathfinding Visualiser")
 
     font = pygame.font.Font(None, 24)
@@ -62,7 +137,7 @@ def main() -> None:
         "greedy": pygame.Rect(18 + 286, height + 135, button_width, button_height),
         "weighted_astar": pygame.Rect(18 + 429, height + 135, button_width, button_height),
     }
-    compare_button = pygame.Rect(width + 100, 30, 220, 40)
+    compare_button = pygame.Rect(width + (PANEL_WIDTH - 220) // 2, 30, 220, 40)
     button_labels = {
         "dijkstra": "Dijkstra",
         "astar": "A*",
@@ -82,6 +157,9 @@ def main() -> None:
     comparison_results = None
     revealed = 0
     last_step = 0
+    agent = None
+    agent_status = ""
+    last_move = 0
     running = True
 
     while running:
@@ -91,6 +169,7 @@ def main() -> None:
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
+                    agent = None
                     if compare_button.collidepoint(event.pos):
                         comparison_results = compare_algorithms(
                             grid,
@@ -147,12 +226,38 @@ def main() -> None:
                 if event.key == pygame.K_ESCAPE:
                     running = False
                 if event.key == pygame.K_s:
+                    agent = None
                     placement_mode = "start"
 
                 if event.key == pygame.K_g:
+                    agent = None
                     placement_mode = "goal"
 
+                if event.key == pygame.K_d:
+                    if agent:
+                        agent = None
+                        result = None
+                        revealed = 0
+                    else:
+                        if algorithm_name not in button_labels:
+                            algorithm_name = "astar"
+                        agent = MovingAgent(grid, start, goal, algorithm_name)
+                        result = agent.result
+                        revealed = len(result.visited_order)
+                        agent_status = STATUS_TEXT["moved"]
+                        last_move = pygame.time.get_ticks()
+
+                if event.key == pygame.K_r:
+                    map_seed += 1
+                    grid, start, goal = new_map(map_seed)
+                    agent = None
+                    result = None
+                    comparison_results = None
+                    revealed = 0
+                    placement_mode = None
+
                 if event.key in algorithms:
+                    agent = None
                     algorithm_name = algorithms[event.key]
                     result = search(
                         grid,
@@ -163,6 +268,15 @@ def main() -> None:
                     revealed = 0
                     last_step = pygame.time.get_ticks()
 
+        if agent and not agent.arrived:
+            now = pygame.time.get_ticks()
+
+            if now - last_move >= MOVE_MS:
+                agent_status = STATUS_TEXT[agent.tick()]
+                result = agent.result
+                revealed = len(result.visited_order)
+                last_move = now
+
         if result and revealed < len(result.visited_order):
             now = pygame.time.get_ticks()
 
@@ -172,8 +286,13 @@ def main() -> None:
 
         screen.fill(WHITE)
 
+        draw_grid = agent.grid if agent else grid
+        obstacles = agent.obstacles if agent else set()
         visited = set(result.visited_order[:revealed]) if result else set()
-        path = set(result.path) if result and revealed == len(result.visited_order) else set()
+        if agent:
+            path = set(agent.route)
+        else:
+            path = set(result.path) if result and revealed == len(result.visited_order) else set()
 
         for row in range(grid.rows):
             for col in range(grid.cols):
@@ -186,7 +305,9 @@ def main() -> None:
                     CELL_SIZE
                 )
 
-                if math.isinf(float(grid.cost[row, col])):
+                if cell in obstacles:
+                    color = PURPLE
+                elif math.isinf(float(draw_grid.cost[row, col])):
                     color = BLACK
                 elif cell in path:
                     color = YELLOW
@@ -203,7 +324,17 @@ def main() -> None:
                 pygame.draw.rect(screen, color, rect)
                 pygame.draw.rect(screen, GRID_LINE, rect, 1)
 
-        if result and result.found:
+        if agent:
+            agent_row, agent_col = agent.position
+            centre = (agent_col * CELL_SIZE + CELL_SIZE // 2, agent_row * CELL_SIZE + CELL_SIZE // 2)
+            pygame.draw.circle(screen, ORANGE, centre, CELL_SIZE // 3)
+
+        if agent:
+            stats = (
+                f"Moving obstacles | {button_labels[agent.algorithm]} | "
+                f"Replans: {agent.replans} | Steps: {agent.steps} | {agent_status}"
+            )
+        elif result and result.found:
             stats = (
                 f"Expanded: {result.expanded} | "
                 f"Cost: {result.cost:.2f} | "
@@ -222,7 +353,7 @@ def main() -> None:
         editor_text = "Left click: Add/remove walls"
         screen.blit(font.render(editor_text, True, BLACK), (10, height + 65))
 
-        placement_text = "S: Move start  G: Move goal"
+        placement_text = "S: Move start  G: Move goal  D: Moving obstacles on/off  R: New map"
         screen.blit(font.render(placement_text, True, BLACK), (10, height + 90))
 
         if placement_mode:
@@ -254,7 +385,7 @@ def main() -> None:
 
             headers = ["Algorithm", "Expanded", "Cost", "Time (ms)", "Max Frontier"]
 
-            x_positions = [width + 15, width + 115, width + 205, width + 285, width + 365]
+            x_positions = [width + 15, width + 150, width + 250, width + 340, width + 445]
 
             for i, header in enumerate(headers):
                 text = small_font.render(header, True, BLACK)
@@ -266,7 +397,7 @@ def main() -> None:
                 item = comparison_results[name]
 
                 values = [
-                    name,
+                    button_labels[name],
                     str(item.expanded),
                     f"{item.cost:.2f}" if item.found else "No path",
                     f"{item.runtime * 1000:.3f}",
