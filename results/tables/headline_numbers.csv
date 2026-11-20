@@ -1,0 +1,10 @@
+,value
+"A* node saving vs Dijkstra, 512x512 (%)",87.1
+"A* speed-up vs Dijkstra, 512x512 (x)",7.0
+"A* node saving vs Dijkstra, 32x32 (%)",83.8
+"A* node saving vs Dijkstra, mean over sizes (%)",86.5
+Weighted A* w=2: node saving vs A* (%),89.7
+Weighted A* w=2: mean cost above optimal (%),8.5
+Weighted A* w=2: worst cost above optimal (%),18.4
+"A* node saving vs Dijkstra, maze uniform (%)",2.5
+"A* node saving vs Dijkstra, random uniform (%)",87.2

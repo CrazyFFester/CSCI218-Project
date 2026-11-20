@@ -26,6 +26,27 @@ python -m pathfinding.viz                     # interactive visualiser
 python experiments/benchmark.py configs/<sweep>.json   # one experiment sweep
 ```
 
+### Visualiser controls
+
+| Input | Action |
+|---|---|
+| 1 / 2 / 3 / 4 or the buttons | Run Dijkstra / A* / Greedy / Weighted A* and replay the search step by step |
+| Left click on the grid | Add or remove a wall |
+| S, then click | Move the start (green) |
+| G, then click | Move the goal (red) |
+| Compare Algorithms | Table of nodes expanded, cost, time and frontier for all four planners |
+| D | Moving obstacles on/off: the agent (orange) walks its path, obstacles (purple) move, and it replans from its current cell when the path is blocked |
+| R | New random map |
+
+### Reproducing the results
+
+```bash
+for c in configs/sweep*.json; do python experiments/benchmark.py "$c"; done   # ~15 min, writes results/*.csv
+jupyter nbconvert --to notebook --execute --inplace notebooks/analysis.ipynb  # writes results/figures and results/tables
+```
+
+The committed CSVs were produced on an Apple M2 Pro, 16 GB RAM, macOS, Python 3.12. Node counts and path costs are deterministic; runtimes depend on the machine.
+
 ## Layout
 
 | Path | What | Owner |
